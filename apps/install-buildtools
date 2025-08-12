@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if command -v cc >/dev/null 2>&1; then
+  echo "C compiler (cc) is already installed."
+  exit 0
+fi
+
+echo "C compiler not found. Installing build tools..."
+
+if command -v apt-get >/dev/null 2>&1; then
+  echo "Detected Debian/Ubuntu..."
+  sudo apt-get update
+  sudo apt-get install -y build-essential
+
+elif command -v dnf >/dev/null 2>&1; then
+  echo "Detected Fedora/RHEL (dnf)..."
+  sudo dnf group install -y "development-tools"
+  sudo dnf install -y gcc
+
+elif command -v yum >/dev/null 2>&1; then
+  echo "Detected RHEL/CentOS (yum)..."
+  sudo yum groupinstall "development-tools"
+  sudo yum install -y gcc
+
+elif command -v pacman >/dev/null 2>&1; then
+  echo "Detected Arch Linux..."
+  sudo pacman -Sy --noconfirm --needed base-devel
+
+else
+  echo "No supported package manager found to install build tools." >&2
+  exit 1
+fi
+
+echo "Build tools installed successfully."

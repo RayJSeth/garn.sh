@@ -1,0 +1,63 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if command -v sudo >/dev/null 2>&1; then
+  SUDO="sudo"
+elif [ "$(id -u)" -eq 0 ]; then
+  SUDO=""
+else
+  echo "Error: sudo not found and you are not root. Please run as root or install sudo." >&2
+  exit 1
+fi
+
+install_base_utils() {
+  echo "Ensuring base utilities rsync, wget, curl, sudo, and gnupg are installed..."
+
+  if command -v apt-get >/dev/null 2>&1; then
+    $SUDO apt-get update
+    $SUDO apt-get install -y rsync wget curl sudo gnupg
+  elif command -v dnf >/dev/null 2>&1; then
+    $SUDO dnf install -y rsync wget curl sudo gnupg2
+  elif command -v yum >/dev/null 2>&1; then
+    $SUDO yum install -y rsync wget curl sudo gnupg2
+  elif command -v pacman >/dev/null 2>&1; then
+    $SUDO pacman -Sy --noconfirm rsync wget curl sudo gnupg
+  else
+    echo "Unsupported package manager. Please install curl, sudo, and gnupg manually." >&2
+    exit 1
+  fi
+
+  echo "Base utilities installed."
+}
+
+install_base_utils && \
+./apps/install-buildtools && \
+./apps/install-btop && \
+./apps/install-git && \
+./apps/install-docker && \
+./apps/install-rust && \
+./apps/install-node && \
+./apps/install-go && \
+./apps/install-jq && \
+./apps/install-unzip && \
+./apps/install-kubectl && \
+./apps/install-kubectx && \
+./apps/install-nvim && \
+./apps/install-codium && \
+./apps/install-firefox && \
+./apps/install-k9s && \
+./apps/install-notable && \
+./apps/install-sublime && \
+./apps/install-nerdfont && \
+./configs/install-codeconfig
+
+
+exit_code=$?
+
+if [ $exit_code -eq 0 ]; then
+  echo "Install completed, please run the following for the changes to take full effect:"
+  echo "source ~/.bashrc && . "~/.cargo/env""
+else
+  echo "Installs failed with exit code $exit_code"
+fi
+

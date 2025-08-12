@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+detect_arch() {
+  case "$(uname -m)" in
+    x86_64) echo "amd64" ;;
+    aarch64 | arm64) echo "arm64" ;;
+    armv7*) echo "arm" ;;
+    *) echo "Unsupported architecture: $(uname -m)" >&2; exit 1 ;;
+  esac
+}
+
+ARCH=$(detect_arch)
+LATEST_URL="https://dl.k8s.io/release/$(curl -Ls https://dl.k8s.io/release/stable.txt)/bin/linux/${ARCH}/kubectl"
+
+install_kubectl() {
+  echo "Downloading kubectl for ${ARCH}..."
+  tmpfile=$(mktemp)
+  curl -L "$LATEST_URL" -o "$tmpfile"
+  chmod +x "$tmpfile"
+  sudo mv "$tmpfile" /usr/local/bin/kubectl
+}
+
+if command -v kubectl >/dev/null 2>&1; then
+  echo "kubectl is already installed. Updating..."
+  install_kubectl
+else
+  echo "kubectl not found. Installing..."
+  install_kubectl
+fi
+
+echo "kubectl installed successfully."

@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+if command -v rustup >/dev/null 2>&1; then
+  echo "Rust is already installed. Updating..."
+  rustup update
+  exit 0
+fi
+
+echo "Installing rust..."
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+
+if [ -t 1 ] && [ -f "$HOME/.cargo/env" ]; then
+  echo "Sourcing Rust environment for this session..."
+  . "$HOME/.cargo/env"
+fi
+
+echo "Rust installation complete. Please restart your shell or source your profile to update your PATH."

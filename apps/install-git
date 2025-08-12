@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if command -v git >/dev/null 2>&1; then
+  echo "git is already installed."
+  exit 0
+fi
+
+echo "git not found. Attempting to install..."
+echo "Escalating to su..."
+
+sudo -v
+while true; do
+  sudo -n true
+  sleep 60
+  kill -0 "$$" || exit
+done 2>/dev/null &
+
+install_git_with_pkgmgr() {
+  if command -v apt-get >/dev/null 2>&1; then
+    sudo apt-get update
+    sudo apt-get install -y git
+    return 0
+  elif command -v dnf >/dev/null 2>&1; then
+    sudo dnf install -y git
+    return 0
+  elif command -v yum >/dev/null 2>&1; then
+    sudo yum install -y git
+    return 0
+  elif command -v pacman >/dev/null 2>&1; then
+    sudo pacman -Sy --noconfirm git
+    return 0
+  else
+    return 1
+  fi
+}
+
+if install_git_with_pkgmgr; then
+  echo "git installed successfully via package manager."
+  exit 0
+fi
+
+echo "No supported package manager found or git package unavailable."
+exit 1

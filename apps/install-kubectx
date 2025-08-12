@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+install_kubectx() {
+  echo "Downloading latest kubectx..."
+  latest_tag=$(curl -s https://api.github.com/repos/ahmetb/kubectx/releases/latest | grep tag_name | cut -d '"' -f4)
+  tmpdir=$(mktemp -d)
+  curl -L "https://github.com/ahmetb/kubectx/releases/download/${latest_tag}/kubectx_${latest_tag}_linux_x86_64.tar.gz" -o "$tmpdir/kubectx.tar.gz"
+  tar -xzf "$tmpdir/kubectx.tar.gz" -C "$tmpdir"
+  sudo mv "$tmpdir/kubectx" /usr/local/bin/kubectx
+  chmod +x /usr/local/bin/kubectx
+  rm -rf "$tmpdir"
+}
+
+if command -v kubectx >/dev/null 2>&1; then
+  echo "kubectx is already installed. Updating..."
+  install_kubectx
+else
+  echo "kubectx not found. Installing..."
+  install_kubectx
+fi
+
+echo "kubectx $(kubectx --help | head -n 1) installed successfully."

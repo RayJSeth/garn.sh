@@ -1,0 +1,65 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Detect architecture in k9s naming format
+detect_arch() {
+  case "$(uname -m)" in
+    x86_64) echo "amd64" ;;
+    aarch64 | arm64) echo "arm64" ;;
+    armv7l) echo "armv7" ;;
+    armv6l | arm) echo "arm" ;;
+    *) echo "Unsupported architecture: $(uname -m)" >&2; exit 1 ;;
+  esac
+}
+
+ARCH=$(detect_arch)
+
+# Get latest tag from GitHub API
+LATEST_TAG=$(curl -s https://api.github.com/repos/derailed/k9s/releases/latest | grep tag_name | cut -d '"' -f4)
+
+install_k9s() {
+  if command -v apt-get >/dev/null 2>&1; then
+    echo "Detected Debian/Ubuntu..."
+    tmpfile=$(mktemp)
+    curl -L "https://github.com/derailed/k9s/releases/download/${LATEST_TAG}/k9s_linux_${ARCH}.deb" -o "$tmpfile"
+    sudo apt-get update
+    sudo dpkg -i "$tmpfile" || sudo apt-get install -f -y
+    rm -f "$tmpfile"
+    return 0
+
+  elif command -v dnf >/dev/null 2>&1; then
+    echo "Detected Fedora/RHEL (dnf)..."
+    tmpfile=$(mktemp).rpm
+    curl -L "https://github.com/derailed/k9s/releases/download/${LATEST_TAG}/k9s_linux_${ARCH}.rpm" -o "$tmpfile"
+    sudo dnf install -y "$tmpfile"
+    rm -f "$tmpfile"
+    return 0
+
+  elif command -v yum >/dev/null 2>&1; then
+    echo "Detected RHEL/CentOS (yum)..."
+    tmpfile=$(mktemp).rpm
+    curl -L "https://github.com/derailed/k9s/releases/download/${LATEST_TAG}/k9s_linux_${ARCH}.rpm" -o "$tmpfile"
+    sudo yum install -y "$tmpfile"
+    rm -f "$tmpfile"
+    return 0
+
+  elif command -v pacman >/dev/null 2>&1; then
+    echo "Detected Arch Linux..."
+    sudo pacman -Sy --noconfirm k9s
+    return 0
+
+  else
+    echo "No supported package manager found."
+    return 1
+  fi
+}
+
+if command -v k9s >/dev/null 2>&1; then
+  echo "k9s is already installed. Updating..."
+else
+  echo "k9s not found. Installing..."
+fi
+
+install_k9s
+
+echo "k9s $(k9s version | head -n 1) installed successfully."

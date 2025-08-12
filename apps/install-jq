@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if command -v jq >/dev/null 2>&1; then
+  echo "jq is already installed."
+  exit 0
+fi
+
+echo "jq not found. Attempting to install..."
+echo "Escalating to su..."
+
+sudo -v
+while true; do
+  sudo -n true
+  sleep 60
+  kill -0 "$$" || exit
+done 2>/dev/null &
+
+install_jq_with_pkgmgr() {
+  if command -v apt-get >/dev/null 2>&1; then
+    sudo apt-get update
+    sudo apt-get install -y jq
+    return 0
+  elif command -v dnf >/dev/null 2>&1; then
+    sudo dnf install -y jq
+    return 0
+  elif command -v yum >/dev/null 2>&1; then
+    sudo yum install -y jq
+    return 0
+  elif command -v pacman >/dev/null 2>&1; then
+    sudo pacman -Sy --noconfirm jq
+    return 0
+  elif command -v apk >/dev/null 2>&1; then
+    sudo apk add jq
+    return 0
+  else
+    return 1
+  fi
+}
+
+if install_jq_with_pkgmgr; then
+  echo "jq installed successfully via package manager."
+  exit 0
+fi
+
+echo "No supported package manager found or jq package unavailable."
+exit 1

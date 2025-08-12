@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if command -v btop >/dev/null 2>&1; then
+  echo "btop is already installed."
+  exit 0
+fi
+
+echo "btop not found. Attempting to install..."
+echo "Escalating to su..."
+
+sudo -v
+while true; do
+  sudo -n true
+  sleep 60
+  kill -0 "$$" || exit
+done 2>/dev/null &
+
+install_btop_with_pkgmgr() {
+  if command -v apt-get >/dev/null 2>&1; then
+    sudo apt-get update
+    sudo apt-get install -y btop
+    return 0
+  elif command -v dnf >/dev/null 2>&1; then
+    sudo dnf install -y btop
+    return 0
+  elif command -v yum >/dev/null 2>&1; then
+    sudo yum install -y btop
+    return 0
+  elif command -v pacman >/dev/null 2>&1; then
+    sudo pacman -Sy --noconfirm btop
+    return 0
+  elif command -v apk >/dev/null 2>&1; then
+    sudo apk add btop
+    return 0
+  else
+    return 1
+  fi
+}
+
+if install_btop_with_pkgmgr; then
+  echo "btop installed successfully via package manager."
+  exit 0
+fi
+
+echo "No supported package manager found or btop package unavailable."
+exit 1

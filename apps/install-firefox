@@ -1,0 +1,52 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if command -v firefox >/dev/null 2>&1; then
+  echo "firefox is already installed."
+  exit 0
+fi
+
+echo "firefox not found. Attempting to install..."
+echo "Escalating to su..."
+
+sudo -v
+while true; do
+  sudo -n true
+  sleep 60
+  kill -0 "$$" || exit
+done 2>/dev/null &
+
+install_firefox_with_pkgmgr() {
+  if command -v apt-get >/dev/null 2>&1; then
+    sudo install -d -m 0755 /etc/apt/keyrings
+    wget -q https://packages.mozilla.org/apt/repo-signing-key.gpg -O- | sudo tee /etc/apt/keyrings/packages.mozilla.org.asc > /dev/null
+    echo "deb [signed-by=/etc/apt/keyrings/packages.mozilla.org.asc] https://packages.mozilla.org/apt mozilla main" | sudo tee -a /etc/apt/sources.list.d/mozilla.list > /dev/null
+    echo '
+Package: *
+Pin: origin packages.mozilla.org
+Pin-Priority: 1000
+' | sudo tee /etc/apt/preferences.d/mozilla 
+    sudo apt-get update
+    sudo apt-get install -y firefox
+    return 0
+  elif command -v dnf >/dev/null 2>&1; then
+    sudo dnf install -y firefox
+    return 0
+  elif command -v yum >/dev/null 2>&1; then
+    sudo yum install -y firefox
+    return 0
+  elif command -v pacman >/dev/null 2>&1; then
+    sudo pacman -Sy --noconfirm firefox
+    return 0
+  else
+    return 1
+  fi
+}
+
+if install_firefox_with_pkgmgr; then
+  echo "firefox installed successfully via package manager."
+  exit 0
+fi
+
+echo "No supported package manager found or firefox package unavailable."
+exit 1

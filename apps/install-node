@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+set -eo pipefail
+
+if command -v nvm >/dev/null 2>&1; then
+  echo "nvm is already installed. Updating nvm and installing latest LTS Node.js..."
+  nvm install --lts
+  nvm use --lts
+  exit 0
+fi
+
+echo "Installing nvm..."
+export NVM_DIR="$HOME/.nvm"
+
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/master/install.sh | bash
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+
+echo "Installing latest LTS Node.js version..."
+nvm install --lts
+nvm use --lts
+
+echo "nvm and latest LTS Node.js installed."
+
+if [ -t 1 ]; then
+  echo "Note: To use nvm in future sessions, ensure your shell profile sources nvm:"
+  echo "  export NVM_DIR=\"$HOME/.nvm\""
+  echo "  [ -s \"\$NVM_DIR/nvm.sh\" ] && \\. \"\$NVM_DIR/nvm.sh\"  # This loads nvm"
+fi

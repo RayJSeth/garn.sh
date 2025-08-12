@@ -1,0 +1,68 @@
+#!/usr/bin/env bash
+set -eo pipefail
+
+echo "Escalating to su..."
+
+sudo -v
+while true; do
+  sudo -n true
+  sleep 60
+  kill -0 "$$" || exit
+done 2>/dev/null &
+
+echo "Checking architecture..."
+
+ARCH=${ARCH:-$(uname -m)}
+case "$ARCH" in
+  x86_64) ARCH='amd64' ;;
+  aarch64|arm64) ARCH='arm64' ;;
+  armv7l) ARCH='arm6l' ;;
+  *) echo "Unsupported architecture: $ARCH" >&2; exit 1 ;;
+esac
+
+echo "Architecture is $ARCH"
+echo "Checking latest go version..."
+
+GO_VERSION=$(curl 'https://go.dev/VERSION?m=text' | head -n 1)
+if [ -z "$GO_VERSION" ]; then
+  echo "Failed to retrieve Go version." >&2
+  exit 1
+fi
+
+TARFILE="$GO_VERSION.linux-$ARCH.tar.gz"
+
+echo "Downloading $TARFILE..."
+curl -LO "https://go.dev/dl/$TARFILE"
+
+echo "Removing existing /usr/local/go (if any)..."
+sudo rm -rf /usr/local/go
+
+echo "Extracting Go archive to /usr/local..."
+sudo tar -C /usr/local -xzf "$TARFILE"
+
+echo "Cleaning up downloaded archive..."
+rm -f "$TARFILE"
+
+echo "Go $GO_VERSION installed successfully."
+
+GO_PATH_LINE='export PATH=$PATH:/usr/local/go/bin'
+PROFILE="$HOME/.bashrc"
+
+if ! grep -Fxq "$GO_PATH_LINE" "$PROFILE"; then
+  echo "" >> "$PROFILE"
+  echo "# Added by Go installer script" >> "$PROFILE"
+  echo "$GO_PATH_LINE" >> "$PROFILE"
+  echo "Appended /usr/local/go/bin to PATH in $PROFILE"
+else
+  echo "/usr/local/go/bin is already in $PROFILE"
+fi
+
+if ! echo "$PATH" | grep -q "/usr/local/go/bin"; then
+  export PATH=$PATH:/usr/local/go/bin
+  echo "Temporarily updated PATH for this session."
+fi
+
+if [ -t 1 ]; then
+  echo "Reloading $PROFILE..."
+  source "$PROFILE"
+fi

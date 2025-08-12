@@ -1,0 +1,93 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+echo "Escalating to su..."
+
+sudo -v
+while true; do
+  sudo -n true
+  sleep 60
+  kill -0 "$$" || exit
+done 2>/dev/null &
+
+echo "Determining architecture..."
+
+ARCH=${ARCH:-$(uname -m)}
+case "$ARCH" in
+  x86_64) ARCH='x86_64' ;;
+  aarch64|arm64) ARCH='aarch64' ;;
+  armv7l) ARCH='armv7l' ;;
+  *) echo "Unsupported architecture: $ARCH" >&2; exit 1 ;;
+esac
+
+echo "Architecture is $ARCH"
+
+export NVM_DIR="$HOME/.nvm"
+if [ -s "$NVM_DIR/nvm.sh" ]; then
+  . "$NVM_DIR/nvm.sh"
+fi
+
+if [ -f "$HOME/.cargo/env" ]; then
+  . "$HOME/.cargo/env"
+fi
+
+echo "Installing ripgrep via cargo..."
+if ! command -v cargo >/dev/null; then
+  echo "Error: cargo not found. Please install Rust first." >&2
+  exit 1
+fi
+
+if ! command -v rg >/dev/null; then
+  cargo install ripgrep
+else
+  echo "ripgrep is already installed."
+fi
+
+echo "Installing tree-sitter-cli globally via npm..."
+if ! command -v npm >/dev/null; then
+  echo "Error: npm not found. Please install Node.js first." >&2
+  exit 1
+fi
+
+if ! command -v tree-sitter >/dev/null; then
+  npm install -g tree-sitter-cli
+else
+  echo "tree-sitter-cli is already installed."
+fi
+
+echo "Downloading latest Neovim for $ARCH..."
+
+TMPDIR=$(mktemp -d)
+cd "$TMPDIR"
+
+NEOVIM_TARBALL="nvim-linux-$ARCH.tar.gz"
+
+curl -LO "https://github.com/neovim/neovim/releases/latest/download/$NEOVIM_TARBALL"
+
+echo "Extracting Neovim binary..."
+tar -xzf "$NEOVIM_TARBALL"
+
+echo "Installing Neovim to /usr/local/..."
+sudo rsync -aHAX --keep-dirlinks nvim-linux-$ARCH/share/ /usr/local/share/
+sudo cp -rP nvim-linux-$ARCH/bin /usr/local/
+sudo chmod +x /usr/local/bin/nvim
+
+cd /
+rm -rf "$TMPDIR"
+
+echo "Backing up existing Neovim config (if exists)..."
+NVIM_CONFIG_DIR="$HOME/.config/nvim"
+if [ -d "$NVIM_CONFIG_DIR" ]; then
+  TIMESTAMP=$(date +%s)
+  mv "$NVIM_CONFIG_DIR" "${NVIM_CONFIG_DIR}_backup_$TIMESTAMP"
+  echo "Backed up existing config to ${NVIM_CONFIG_DIR}_backup_$TIMESTAMP"
+fi
+
+echo "Installing AstroNvim..."
+
+git clone --depth 1 https://github.com/AstroNvim/template "$NVIM_CONFIG_DIR"
+rm -rf $NVIM_CONFIG_DIR/.git
+
+echo "Neovim and AstroNvim installation complete!"
+echo "Run 'nvim' to start Neovim with AstroNvim."
+

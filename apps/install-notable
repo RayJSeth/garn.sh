@@ -1,0 +1,65 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if command -v notable >/dev/null 2>&1; then
+  echo "Notable is already installed."
+  exit 0
+fi
+
+echo "Notable not found. Attempting to install..."
+echo "Escalating to su..."
+
+sudo -v
+while true; do
+  sudo -n true
+  sleep 60
+  kill -0 "$$" || exit
+done 2>/dev/null &
+
+tmpdir=$(mktemp -d)
+cleanup() { rm -rf "$tmpdir"; }
+trap cleanup EXIT
+
+install_notable() {
+  if command -v apt-get >/dev/null 2>&1; then
+    echo "Detected Debian/Ubuntu..."
+    pkg="$tmpdir/notable.deb"
+    curl -L "https://download.notable.app/?target=deb" -o "$pkg"
+    sudo apt-get update
+    sudo apt-get install -y "$pkg"
+    return 0
+
+  elif command -v dnf >/dev/null 2>&1; then
+    echo "Detected Fedora/RHEL (dnf)..."
+    pkg="$tmpdir/notable.rpm"
+    curl -L "https://download.notable.app/?target=rpm" -o "$pkg"
+    sudo dnf install -y "$pkg"
+    return 0
+
+  elif command -v yum >/dev/null 2>&1; then
+    echo "Detected RHEL/CentOS (yum)..."
+    pkg="$tmpdir/notable.rpm"
+    curl -L "https://download.notable.app/?target=rpm" -o "$pkg"
+    sudo yum install -y "$pkg"
+    return 0
+
+  elif command -v pacman >/dev/null 2>&1; then
+    echo "Detected Arch Linux..."
+    pkg="$tmpdir/notable.pkg.tar.zst"
+    curl -L "https://download.notable.app/?target=pacman" -o "$pkg"
+    sudo pacman -U --noconfirm --assume-installed  libappindicator-sharp "$pkg"
+    return 0
+
+  else
+    echo "No supported package manager found."
+    return 1
+  fi
+}
+
+if install_notable; then
+  echo "Notable installed successfully."
+  exit 0
+fi
+
+echo "Failed to install Notable."
+exit 1

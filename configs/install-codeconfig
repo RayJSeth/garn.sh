@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+CONFIG_FILE="$SCRIPT_DIR/settings.json"
+
+copy_vscode_config() {
+  local appname=$1
+  local config_dir=$2
+
+  if command -v "$appname" >/dev/null 2>&1; then
+    echo "$appname detected. Installing custom settings..."
+
+    mkdir -p "$config_dir"
+    cp -f "$CONFIG_FILE" "$config_dir/settings.json"
+
+    echo "Custom settings installed to $config_dir/settings.json"
+  else
+    echo "$appname not found. Skipping config installation."
+  fi
+}
+
+# Detect and install for VSCode (code) and VSCodium (codium)
+copy_vscode_config "code" "$HOME/.config/Code/User"
+copy_vscode_config "codium" "$HOME/.config/VSCodium/User"

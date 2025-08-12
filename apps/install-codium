@@ -1,0 +1,138 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if command -v codium >/dev/null 2>&1; then
+  echo "vscodium is already installed."
+  exit 0
+fi
+
+echo "vscodium not found. Attempting to install..."
+echo "Escalating to su..."
+
+sudo -v
+while true; do
+  sudo -n true
+  sleep 60
+  kill -0 "$$" || exit
+done 2>/dev/null &
+
+install_yay() {
+  echo "Installing yay AUR helper..."
+
+  pacman -S --needed --noconfirm base-devel git || {
+    echo "Failed to install base-devel and git." >&2
+    return 1
+  }
+
+  if ! id builder >/dev/null 2>&1; then
+    useradd -m -s /bin/bash builder || {
+      echo "Failed to create temporary user 'builder'." >&2
+      return 1
+    }
+  fi
+
+  local tmpdir="/home/builder/yaybuild"
+
+  mkdir -p /home/builder/.cache
+  chown builder:builder /home/builder/.cache
+
+  sudo -u builder rm -rf "$tmpdir"
+  sudo -u builder mkdir -p "$tmpdir" || {
+    echo "Failed to create build directory for builder." >&2
+    return 1
+  }
+
+  sudo -u builder git clone https://aur.archlinux.org/yay.git "$tmpdir" || {
+    echo "Failed to clone yay repo." >&2
+    return 1
+  }
+
+  ln -sf /usr/local/go/bin/go /usr/bin/go
+
+  sudo -u builder env \
+    HOME=/home/builder \
+    XDG_CACHE_HOME=/home/builder/.cache \
+    PATH=/usr/local/go/bin:/usr/bin:/bin:$PATH \
+    bash -c "cd '$tmpdir' && makepkg --noconfirm --nodeps" || {
+      echo "Failed to build yay package." >&2
+      return 1
+    }
+
+  pkgfile=$(ls "$tmpdir"/yay-*.pkg.tar.zst | head -n1)
+  if [ ! -f "$pkgfile" ]; then
+    echo "Built yay package not found!" >&2
+    return 1
+  fi
+
+  pacman -U --noconfirm "$pkgfile" || {
+    echo "Failed to install yay package." >&2
+    return 1
+  }
+
+  sudo -u builder rm -rf "$tmpdir"
+  userdel -r builder || {
+    echo "Warning: failed to remove temporary user 'builder'." >&2
+  }
+
+  echo "yay installed successfully."
+  return 0
+}
+
+
+
+install_vscodium_with_pkgmgr() {
+  if command -v apt-get >/dev/null 2>&1; then
+    sudo apt-get update
+    sudo apt-get install -y wget gpg || true
+    wget -qO - https://gitlab.com/paulcarroty/vscodium-deb-rpm-repo/raw/master/pub.gpg | sudo gpg --dearmor -o /usr/share/keyrings/vscodium-archive-keyring.gpg
+    echo "deb [ signed-by=/usr/share/keyrings/vscodium-archive-keyring.gpg ] https://paulcarroty.gitlab.io/vscodium-deb-rpm-repo/debs/ vscodium main" | sudo tee /etc/apt/sources.list.d/vscodium.list
+    sudo apt-get update
+    sudo apt-get install -y codium
+    return 0
+  elif command -v dnf >/dev/null 2>&1; then
+    sudo tee -a /etc/yum.repos.d/vscodium.repo << 'EOF'
+[gitlab.com_paulcarroty_vscodium_repo]
+name=gitlab.com_paulcarroty_vscodium_repo
+baseurl=https://paulcarroty.gitlab.io/vscodium-deb-rpm-repo/rpms/
+enabled=1
+gpgcheck=1
+repo_gpgcheck=1
+gpgkey=https://gitlab.com/paulcarroty/vscodium-deb-rpm-repo/raw/master/pub.gpg
+metadata_expire=1h
+EOF
+    sudo dnf install -y codium
+    return 0
+  elif command -v yum >/dev/null 2>&1; then
+   sudo tee -a /etc/zypp/repos.d/vscodium.repo << 'EOF'
+[gitlab.com_paulcarroty_vscodium_repo]
+name=gitlab.com_paulcarroty_vscodium_repo
+baseurl=https://paulcarroty.gitlab.io/vscodium-deb-rpm-repo/rpms/
+enabled=1
+gpgcheck=1
+repo_gpgcheck=1
+gpgkey=https://gitlab.com/paulcarroty/vscodium-deb-rpm-repo/raw/master/pub.gpg
+metadata_expire=1h
+EOF
+    sudo yum install -y codium
+    return 0
+  elif command -v pacman >/dev/null 2>&1; then
+    if ! command -v yay >/dev/null 2>&1; then
+      install_yay || {
+        echo "Failed to install yay. Please install it manually."
+        return 1
+      }
+    fi
+  yay -Sy --noconfirm vscodium-bin
+  return 0
+  else
+    return 1
+  fi
+}
+
+if install_vscodium_with_pkgmgr; then
+  echo "vscodium installed successfully via package manager."
+  exit 0
+fi
+
+echo "No supported package manager found or vscodium package unavailable."
+exit 1

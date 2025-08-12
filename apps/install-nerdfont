@@ -1,0 +1,62 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+REPO="ryanoasis/nerd-fonts"
+FONT_NAME="IBMPlexMono"
+
+echo "Fetching latest release info from GitHub API..."
+
+LATEST_JSON=$(curl -s "https://api.github.com/repos/$REPO/releases/latest")
+
+ASSET_URL=$(echo "$LATEST_JSON" | jq -r --arg font "$FONT_NAME" '
+  .assets[] | select(.name | test($font; "i")) | .browser_download_url' | grep -i '\.zip' | head -n 1)
+
+if [ -z "$ASSET_URL" ]; then
+  echo "Error: Could not find a download URL for $FONT_NAME in latest release." >&2
+  exit 1
+fi
+
+echo "Found download URL: $ASSET_URL"
+
+FONT_DIR="$HOME/.local/share/fonts"
+mkdir -p "$FONT_DIR"
+
+TMPDIR=$(mktemp -d)
+cd "$TMPDIR"
+
+echo "Downloading $FONT_NAME Nerd Font..."
+curl -LO "$ASSET_URL"
+
+ZIPFILE=$(basename "$ASSET_URL")
+echo "Extracting font files..."
+unzip -o "$ZIPFILE" -d blexmono-fonts
+
+echo "Copying fonts to $FONT_DIR..."
+cp blexmono-fonts/*.ttf "$FONT_DIR/"
+
+cd /
+rm -rf "$TMPDIR"
+
+echo "Updating font cache..."
+
+if ! command -v fc-cache >/dev/null 2>&1; then
+  echo "fc-cache not found. Installing fontconfig package..."
+  if command -v apt-get >/dev/null 2>&1; then
+    sudo apt-get update
+    sudo apt-get install -y fontconfig
+  elif command -v dnf >/dev/null 2>&1; then
+    sudo dnf install -y fontconfig
+  elif command -v yum >/dev/null 2>&1; then
+    sudo yum install -y fontconfig
+  elif command -v pacman >/dev/null 2>&1; then
+    sudo pacman -Sy --noconfirm fontconfig
+  else
+    echo "Please install fontconfig manually to update font cache." >&2
+    exit 1
+  fi
+fi
+
+fc-cache -fv "$FONT_DIR"
+
+echo "$FONT_NAME Nerd Font installed and font cache updated."
+
