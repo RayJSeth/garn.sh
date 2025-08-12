@@ -44,7 +44,6 @@ cd garn.sh
 - sublime
 - IBMBlexMono nerdfont
 - config to make vscode+vscodium much more beautiful
-- 
 
 ## 📜 License
 
