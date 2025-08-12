@@ -12,12 +12,6 @@ We don’t replace your OS. We dress it with a curated set of useful tools and c
 
 ## 📦 Installation
 
-```bash
-TODO
-```
-
-Or, clone & run locally:
-
 ```bash 
 git clone https://github.com/RayJSeth/garn.sh.git
 cd garn.sh
